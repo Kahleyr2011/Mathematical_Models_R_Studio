@@ -1,0 +1,83 @@
+---
+title: "Two-Stage Logistic Growth Model for Population Dynamics"
+subtitle: "A Student-Friendly Simulation Tool"
+author: "Regina F. Jordan"
+date: "`r Sys.Date()`"
+output: github_document
+---
+
+# 🧬 Project Overview
+This project implements a **two-stage logistic growth model** with a mortality parameter.  
+It is designed for students in *Mathematical Modeling* to explore population dynamics, parameter estimation, and scenario projections.  
+
+- **Stage 1:** Fit logistic parameters (*r*, *K*) to observed data.  
+- **Stage 2:** Project population under different constant death rates.  
+
+---
+
+# 🎯 Learning Objectives
+Students will:
+- Fit logistic models to observed ecological data.  
+- Interpret growth rate (*r*), carrying capacity (*K*), and mortality (*d*).  
+- Explore scenario analysis by modifying mortality rates.  
+- Generate tables, plots, and CSV exports.  
+
+---
+
+# 💻 Full Implementation
+
+```{r full-model, echo=TRUE, eval=TRUE}
+library(tidyverse)
+inputs <- list(P0=18,r_guess=0.5,K_guess=4000,r_min=0,r_max=1,K_min=600,K_max=5000,extend_years=25,death_rate=0)
+data <- read.csv("data/whooping_crane_population_for_R.csv")
+colnames(data) <- c("Year","P_obs")
+
+logistic_model <- function(params, years, P0){r<-params[1];K<-params[2];P<-numeric(length(years));P[1]<-P0;for(i in 2:length(years)){P[i]<-P[i-1]+r*P[i-1]*(1-P[i-1]/K)};P}
+sse_fn <- function(par, years, P_obs, P0){P_pred<-logistic_model(par,years,P0);sum((P_obs-P_pred)^2,na.rm=TRUE)}
+logistic_model_with_death <- function(r,K,d,years,P0,transition_year=NULL){P<-numeric(length(years));P[1]<-P0;for(i in 2:length(years)){if(!is.null(transition_year)&&years[i]<=transition_year){P[i]<-P[i-1]+r*P[i-1]*(1-P[i-1]/K)}else{P[i]<-P[i-1]+r*P[i-1]*(1-P[i-1]/K)-d};P[i]<-max(P[i],0)};P}
+
+fit_opt <- optim(par=c(inputs$r_guess,inputs$K_guess),fn=function(par)sse_fn(par,data$Year,data$P_obs,inputs$P0),
+                 method="L-BFGS-B",lower=c(inputs$r_min,inputs$K_min),upper=c(inputs$r_max,inputs$K_max),control=list(maxit=2000))
+
+r_est <- fit_opt$par[1]; K_est <- fit_opt$par[2]
+
+last_year <- max(data$Year)
+future_years <- (last_year+1):(last_year+inputs$extend_years)
+all_years <- c(data$Year,future_years)
+extended_P <- logistic_model_with_death(r_est,K_est,inputs$death_rate,all_years,inputs$P0,last_year)
+
+yearly_results <- tibble(Year=as.character(all_years),
+                         P_obs=c(data$P_obs,rep(NA,length(future_years))),
+                         P_model=extended_P,
+                         Death_Applied=c(rep("No",length(data$Year)),rep("Yes",length(future_years))),
+                         Squared_Error=c((data$P_obs-extended_P[1:length(data$Year)])^2,rep(NA,length(future_years))),
+                         r_fixed=r_est,K_fixed=K_est,death_rate=inputs$death_rate)
+
+knitr::kable(head(yearly_results,10),caption="Sample of Model Results")
+```
+
+---
+
+# 📊 Visualization
+
+```{r plot-results, fig.width=9, fig.height=6}
+transition_line_data <- data.frame(x=as.numeric(as.character(last_year))+0.5)
+ggplot(yearly_results,aes(x=as.numeric(Year)))+
+geom_point(aes(y=P_obs),color="blue",size=3,na.rm=TRUE)+
+geom_line(aes(y=P_obs),color="blue",linetype="dashed",linewidth=1,na.rm=TRUE)+
+geom_line(aes(y=P_model),color="red",linewidth=1)+
+geom_vline(data=transition_line_data,aes(xintercept=x),linetype="dotted",color="gray50",linewidth=1)+
+labs(title=paste0("Two-Stage Logistic Model (Death Rate = ",inputs$death_rate,")"),
+     subtitle=paste0("Stage 1: Fit r=",round(r_est,3),", K=",round(K_est,0)," | Stage 2: Projections with Death Term"),
+     x="Year",y="Population")+theme_minimal()
+```
+
+---
+
+# 📜 License & Contact
+This work is licensed under the **Creative Commons CC BY-NC-SA 4.0 License**.  
+
+- Author: Regina F. Jordan  
+- Email: [rfjordan2020@gmail.com](mailto:rfjordan2020@gmail.com)  
+- Institution: Whittier College, Department of Mathematics & Computer Science  
+- GitHub Repo: [Mathematical Models in R](https://github.com/Kahleyr2011/Mathematical_Models_R_Studio)  
