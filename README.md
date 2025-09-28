@@ -12,14 +12,16 @@ It was designed for students in *Mathematical Modeling* courses to explore popul
 
 ---
 
+
+
 ## Repository Structure
 ```
-├── data/
-│   └── whooping_crane_population_for_R.csv
-├── Two_Stage_Logistic_Model_PDF.Rmd
-├── Two_Stage_Logistic_Model_GitHub.Rmd
-├── USAGE.md
-└── README.md
+figures/
+LICENSE
+README.md
+Two_Stage_Logistic_Model.r
+USAGE.md
+whooping_crane_population_for_R.csv
 ```
 
 ---
